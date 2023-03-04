@@ -1,12 +1,16 @@
 Package: simplify
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Title: Miscellaneous functions for everyday use
+Version: 0.0.1
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
+    person("Deep", "Devdhara", , "deepjyot1991@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Description: Writing the same code over and over again in a script is tedious and frustrating. Encapsulating them into functions can help us reuse these functions and reduce our efforts.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
+Imports: 
+    data.table,
+    feather,
+    filelock,
+    tibble
