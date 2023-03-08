@@ -1,3 +1,26 @@
+#' Fast md5 check
+#'
+#' md5 values are computed based on combination of file path, file size and file modified time.
+#'
+#' @param path_files a character vector containing absolute file paths.
+#'
+#' @return a character vector containing md5 values.
+#' @export
+#'
+#' @examples
+#' custom_md5_hash(path_files = list.files(full.names = TRUE))
+custom_md5_hash <- function(path_files) {
+
+  path_files <- gsub(pattern = "\\\\", replacement = "/", x = path_files)
+
+  size_files <- sapply(path_files, file.size)
+  mtime_files <- sapply(path_files, file.mtime)
+
+  info_files <- paste0(gsub(pattern = ".*/(.*)$", replacement = "\\1", x = path_files), size_files, mtime_files)
+
+  sapply(info_files, digest::digest, algo="md5")
+}
+
 #' Create/update log file with the logged data
 #'
 #' Log file is created or updated with the latest message along with the log timestamp.
@@ -41,4 +64,214 @@ log_messages <- function(message, file_path) {
   filelock::unlock(lock = logs_lock)
   TRUE
 }
+
+#' Update/create a file with the given data at a given path
+#'
+#' Updates data in a file based on the given path. Backs up the old file if the file with the same name is already present.
+#' Appends the file name with the timestamp for the back up files.
+#'
+#' @param data A data.frame, tibble or data.table.
+#' @param file_path A character string representing the path of the output file. Do not include file extension.
+#' @param max_limit A numeric value representing the number of most recent back up files to keep. Default is 3.
+#'
+#' @return A logical value TRUE if the operation is successful.
+#' @export
+#'
+#' @examples
+update_output_file <- function(data, file_path, max_limit = 3) {
+
+  dir.create(path = gsub(pattern = "([^/]*)$", replacement = "", x = file_path), recursive = TRUE, showWarnings = FALSE)
+
+  if(file.exists(paste0(file_path, ".feather"))) {
+    if(file.rename(from = paste0(file_path, ".feather"), to = paste0(file_path, format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S"), ".feather"))) {
+      feather::write_feather(x = data, path = paste0(file_path, ".feather"))
+    } else {
+      feather::write_feather(x = data, path = paste0(file_path, format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S-locked"), ".feather"))
+    }
+  } else {
+    feather::write_feather(x = data, path = paste0(file_path, ".feather"))
+  }
+
+  if(file.exists(paste0(file_path, ".csv"))) {
+    if(file.rename(from = paste0(file_path, ".csv"), to = paste0(file_path, format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S"), ".csv"))) {
+      data.table::fwrite(x = data, file = paste0(file_path, ".csv"), row.names = FALSE)
+    } else {
+      data.table::fwrite(x = data, file = paste0(file_path, format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S-locked"), ".csv"), row.names = FALSE)
+    }
+  } else {
+    data.table::fwrite(x = data, file = paste0(file_path, ".csv"), row.names = FALSE)
+  }
+
+
+  folder_path <- gsub(pattern = "^(.*)/.+$", replacement = "\\1", x = file_path)
+
+  file_name <- gsub(pattern = ".*/(.*)$", replacement = "\\1", x = file_path)
+
+
+  all_extra_csv_files <- sort(list.files(path = folder_path, pattern = paste0("^", file_name, "-.+\\.csv"), full.names = TRUE))
+
+  if(length(all_extra_csv_files) > 0) {
+    files_to_remove <- all_extra_csv_files[1:(length(all_extra_csv_files)-0)]
+    file.remove(files_to_remove)
+  }
+
+
+  all_extra_feather_files <- sort(list.files(path = folder_path, pattern = paste0("^", file_name, "-.+\\.feather"), full.names = TRUE))
+
+  if(length(all_extra_feather_files) > max_limit) {
+    files_to_remove <- all_extra_feather_files[1:(length(all_extra_feather_files)-max_limit)]
+    file.remove(files_to_remove)
+  }
+
+  TRUE
+}
+
+#' Append multiple files in a given folder into one
+#'
+#' Appends all the files in a folder. Files have to be either csv, xlsx or txt. Note that certain file types are ignored such as those end with .trc, .xlsm, .log and those containing ~$.
+#' custom_md5_hash from package "simplify" is used to generate md5 hash.
+#'
+#' @param folder_path A character string representing an absolute folder path.
+#' @param sheet A character string representing name of the excel sheet.
+#'
+#' @return A data.table representing the combined data of all the files within that given folder.
+#' @export
+#'
+#' @examples
+file_append <- function(folder_path, sheet = NULL) {
+
+  output_file <- gsub(pattern = "^(.*)/$", replacement = "\\1", x = folder_path)
+
+  # file_list <- grep(pattern = "[^\\.log]$", x = grep(pattern = "^[^\\~\\$].*", x = list.files(path = folder_path), value = TRUE), value = TRUE)
+  all_files <- list.files(path = folder_path)
+  file_list <- all_files[!all_files %in% grep(pattern = "\\.trc$|\\.xlsm$|\\.log$|\\~\\$.*", x = all_files, value = TRUE)]
+
+  files_md5 <- simplify::custom_md5_hash(path_files = paste0(output_file, "/", file_list))
+
+  if(file.exists(paste0(output_file, "_md5.csv"))) {
+    read_md5 <- data.table::fread(file = paste0(output_file, "_md5.csv"))
+
+    if(FALSE %in% (read_md5$x %in% files_md5)) {
+      reset_flag <- TRUE
+    } else {
+      reset_flag <- FALSE
+    }
+
+    if(FALSE %in% (files_md5 %in% read_md5$x)) {
+      update_flag <- TRUE
+    } else {
+      update_flag <- FALSE
+    }
+  } else {
+    read_md5 <- data.frame(x = character())
+    update_flag <- FALSE
+    reset_flag <- TRUE
+  }
+
+  if(!reset_flag) {
+    if(file.exists(paste0(output_file, "_merged.feather"))) {
+      # Read the csv file in case reading feather results in error such as duplicate column names are present
+      if("try-error" %in% class(try(expr = {
+        data_final <- feather::read_feather(path = paste0(output_file, "_merged.feather"))
+        data.table::setDT(data_final)
+      }, silent = TRUE))) {
+        data_final <- data.table::fread(paste0(output_file, "_merged.csv"))
+      }
+    } else {
+      reset_flag <- TRUE
+    }
+  }
+
+
+  if(reset_flag | update_flag) {
+    for(i in 1:length(file_list)) {
+      if((!files_md5[i] %in% read_md5$x) | reset_flag) {
+        if(grepl(pattern = "\\.xlsx$", x = file_list[i])) {
+          read_file <- tibble::as_tibble(readxl::read_excel(path = paste0(folder_path, "/", file_list[i]), sheet = sheet, col_types = "text", .name_repair = "minimal"), .name_repair = "minimal")
+
+          #If the file is in the SAP BO raw format
+          if(!is.na(read_file[1,1])) {
+            if(read_file[1,1] == "Business Reporting and Analytics") {
+              read_file <- tibble::as_tibble(readxl::read_excel(path = paste0(folder_path, "/", file_list[i]), sheet = sheet, col_types = "text", .name_repair = "minimal", skip = 14), .name_repair = "minimal")
+
+              read_file <- read_file[,-c(1:3)]
+            }
+          }
+
+          if(colnames(read_file)[1] == "" | is.na(colnames(read_file)[1])) {
+            read_file[1,][is.na(read_file[1,])] <- ""
+            colnames(read_file) <- gsub(pattern = "^Snapshot Calender.*", replacement = "", x = colnames(read_file), ignore.case = TRUE)
+
+            col_names <- paste(colnames(read_file), read_file[1,])
+            for(j in 1:length(col_names)) {
+              read_file[1,j] <- col_names[j]
+            }
+            names(read_file) <- gsub(pattern = "^\\s*(.*)", replacement = "\\1", x = read_file[1,])
+            read_file <- read_file[-1,]
+          }
+        } else if(grepl(pattern = "\\.csv$", x = file_list[i])) {
+          read_file <- tibble::as_tibble(readr::read_csv(file = paste0(folder_path, "/", file_list[i]), col_types = readr::cols(.default = readr::col_character())), .name_repair = "minimal")
+        } else if(grepl(pattern = "\\.txt$", x = file_list[i])) {
+          read_file <- tibble::as_tibble(readLines(con = paste0(folder_path, "/", file_list[i]), n = 1), stringsAsFactors = FALSE, .name_repair = "minimal")
+          if(grepl(pattern = "\t", x = read_file[1,1])) {
+            read_file <- tibble::as_tibble(utils::read.delim(file = paste0(folder_path, "/", file_list[i]), stringsAsFactors = FALSE), .name_repair = "minimal")
+          } else {
+            read_file <- tibble::as_tibble(readLines(con = paste0(folder_path, "/", file_list[i]), n = -1, warn = FALSE), stringsAsFactors = FALSE, .name_repair = "minimal")
+            colnames(read_file) <- "Lines"
+          }
+        } else if(grepl(pattern = "\\.json$", x = file_list[i])) {
+          read_file <- jsonlite::fromJSON(txt = paste0(folder_path, "/", file_list[i]))
+        } else if(grepl(pattern = "\\.feather$", x = file_list[i])) {
+          read_file <- feather::read_feather(path = paste0(folder_path, "/", file_list[i]))
+        }
+
+        #Set as data.table
+        data.table::setDT(read_file)
+
+        #Rename blank column names
+        col_rename <- which(colnames(read_file) == "")
+        if(length(col_rename)) {
+          colnames(read_file)[col_rename] <- paste0(colnames(read_file)[col_rename-1], " name")
+        }
+
+        if(i == 1 & reset_flag) {
+          data_final <- read_file
+        } else {
+          cols_intersect <- intersect(colnames(data_final), colnames(read_file))
+
+          if(length(colnames(data_final)) == length(cols_intersect) & length(colnames(read_file)) == length(cols_intersect)) {
+            data_final <- data_final[,cols_intersect, with = FALSE]
+            read_file <- read_file[,cols_intersect, with = FALSE]
+            data_final <- rbind(data_final, read_file)
+          } else {
+            max_rows <- nrow(data_final) + nrow(read_file)
+            data_final <- merge(x = data_final, y = read_file, by = cols_intersect, all = TRUE)
+            if(nrow(data_final) > max_rows) {
+              stop("Rows in merged data are more than sum of rows in individual files")
+            }
+          }
+        }
+      }
+    }
+
+    feather::write_feather(x = data_final, path = paste0(output_file, "_merged.feather"))
+
+    if(file.exists(paste0(output_file, "_merged.csv"))) {
+      if(file.remove(paste0(output_file, "_merged.csv"))) {
+        data.table::fwrite(x = data_final, file = paste0(output_file, "_merged.csv"), row.names = FALSE)
+      } else {
+        data.table::fwrite(x = data_final, file = paste0(output_file, "_merged", format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S-locked"), ".csv"), row.names = FALSE)
+      }
+    } else {
+      data.table::fwrite(x = data_final, file = paste0(output_file, "_merged.csv"), row.names = FALSE)
+    }
+
+  }
+
+  data_final
+}
+
+
+
+
 
