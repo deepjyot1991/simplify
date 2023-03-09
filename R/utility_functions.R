@@ -225,6 +225,10 @@ file_append <- function(folder_path, sheet = NULL) {
           read_file <- feather::read_feather(path = paste0(folder_path, "/", file_list[i]))
         }
 
+        if(nrow(read_file) == 0) {
+          next
+        }
+
         #Set as data.table
         data.table::setDT(read_file)
 
@@ -271,7 +275,109 @@ file_append <- function(folder_path, sheet = NULL) {
   data_final
 }
 
+#' Generate md5 hash of the files in a given folder
+#'
+#' Generates the md5 hash of the files in a given folder. Note that certain file types are ignored such as those end with .trc, .xlsm, .log and those containing ~$.
+#' custom_md5_hash from package "simplify" is used to generate md5 hash.
+#'
+#' @param folder_path A character string representing an absolute folder path.
+#'
+#' @return A character vector with md5 hash values of all the files within a given folder.
+#' @export
+#'
+#' @examples
+#' read_md5_folder(folder_path = getwd())
+read_md5_folder <- function(folder_path) {
 
+  output_file <- gsub(pattern = "^(.*)/$", replacement = "\\1", x = folder_path)
 
+  all_files <- list.files(path = folder_path)
+  file_list <- all_files[!all_files %in% grep(pattern = "\\.trc$|\\.xlsm$|\\.log$|\\~\\$.*", x = all_files, value = TRUE)]
 
+  files_md5 <- simplify::custom_md5_hash(path_files = paste0(output_file, "/", file_list))
 
+  files_md5
+}
+
+#' Update the md5 hash once all the files in a given folder have processed
+#'
+#' A csv file with the same name as the folder name is created/updated with new md5 values. This file with md5 hash values and the given folder has same parent directory.
+#'
+#' @param md5_data A character vector representing md5 hash values of the files within the given folder.
+#' @param folder_path A character string representing an absolute folder path.
+#'
+#' @return A logical value TRUE if the operation is successful.
+#' @export
+#'
+#' @examples
+update_md5_file <- function(md5_data, folder_path) {
+
+  dir.create(path = gsub(pattern = "([^/]*)$", replacement = "", x = folder_path), recursive = TRUE, showWarnings = FALSE)
+
+  output_file <- gsub(pattern = "^(.*)/$", replacement = "\\1", x = folder_path)
+
+  utils::write.csv(x = md5_data, file = paste0(output_file, "_md5.csv"), row.names = FALSE)
+
+  TRUE
+}
+
+#' Fill missing values in a data.frame or a data.table by reference
+#'
+#' Intelligently fill missing values in a data.frame or a data.table in memory.
+#' If column names are not provided, missing values will be filled in for all the columns where data type of the column matches with the val argument's data type.
+#' Use with caution. Since data is modified in memory, no data is returned. Hence no need to specify assignment operator '<-'.
+#'
+#' @param DT A data.table or a data.frame. A data.frame will be converted to a data.table.
+#' @param column_names A character vector of column names to fill missing values. If NULL which is default, missing values will be filled in for all the columns where data type of the column matches with the val argument's data type.
+#' @param val Value to replace the missing values. Default is 0.
+#'
+#' @return A data.table with missing values replace with val.
+#' @export
+#' @importFrom data.table :=
+#' @importFrom data.table .SD
+#'
+#' @examples
+#' dt_sample <- data.table::data.table(Col_1 = c("a", "b", NA), Col_2 = c(2, NA, 5))
+#' dt_fill_NAs(DT = dt_sample, val = 0)
+dt_fill_NAs <- function(DT, column_names = NULL, val = 0) {
+
+  if(!"data.table" %in% class(DT)) {
+    data.table::setDT(DT)
+  }
+
+  if(class(val) == "numeric") {
+    integer_cols <- colnames(DT)[sapply(DT, class) %in% "integer"]
+    if(length(integer_cols)) {
+      DT[ , (integer_cols) := lapply(.SD, as.numeric), .SDcols = integer_cols]
+    }
+  }
+
+  if(is.null(column_names)) {
+    colnums <- which(x = as.vector(sapply(DT, class)) == class(val))
+
+    # or by number (slightly faster than by name) :
+    for (j in colnums)
+      data.table::set(DT, which(is.na(DT[[j]])), j, val)
+  } else {
+    colnums <- colnames(DT)[colnames(DT) %in% column_names]
+
+    class_mismatch <- colnames(DT[,colnums, with = FALSE])[as.vector(sapply(DT[,colnums, with = FALSE], class)) != class(val)]
+
+    if(length(class_mismatch)) {
+      if(class(val) == "numeric") {
+        DT[ , (class_mismatch) := lapply(.SD, as.character), .SDcols = class_mismatch]
+        DT[ , (class_mismatch) := lapply(.SD, as.numeric), .SDcols = class_mismatch]
+      }
+      if(class(val) == "character") {
+        DT[ , (class_mismatch) := lapply(.SD, as.character), .SDcols = class_mismatch]
+      }
+      if(class(val) == "Date") {
+        DT[ , (class_mismatch) := lapply(.SD, as.Date), .SDcols = class_mismatch]
+      }
+    }
+
+    for (j in colnums)
+      data.table::set(DT, which(is.na(DT[[j]])), j, val)
+  }
+
+}
