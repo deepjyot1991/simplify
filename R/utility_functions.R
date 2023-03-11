@@ -79,7 +79,7 @@ log_messages <- function(message, file_path) {
 #'
 #' @examples
 update_output_file <- function(data, file_path, max_limit = 3) {
-
+  file_path <- gsub(pattern = "(\\/)*$", replacement = "", x = file_path)
   dir.create(path = gsub(pattern = "([^/]*)$", replacement = "", x = file_path), recursive = TRUE, showWarnings = FALSE)
 
   if(file.exists(paste0(file_path, ".feather"))) {
