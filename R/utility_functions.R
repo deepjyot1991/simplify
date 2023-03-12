@@ -18,7 +18,7 @@ custom_md5_hash <- function(path_files) {
 
   info_files <- paste0(gsub(pattern = ".*/(.*)$", replacement = "\\1", x = path_files), size_files, mtime_files)
 
-  sapply(info_files, digest::digest, algo="md5")
+  as.character(sapply(info_files, digest::digest, algo="md5"))
 }
 
 #' Create/update log file with the logged data
@@ -238,7 +238,7 @@ file_append <- function(folder_path, sheet = NULL) {
           colnames(read_file)[col_rename] <- paste0(colnames(read_file)[col_rename-1], " name")
         }
 
-        if(i == 1 & reset_flag) {
+        if(!exists(data_final) & reset_flag) {
           data_final <- read_file
         } else {
           cols_intersect <- intersect(colnames(data_final), colnames(read_file))
@@ -273,6 +273,31 @@ file_append <- function(folder_path, sheet = NULL) {
   }
 
   data_final
+}
+
+#' Compare given md5 values with the one present in _md5.csv file
+#'
+#' Return TRUE if provided md5 values matches with the one in the file.
+#'
+#' @param md5_data A character vector representing md5 values.
+#' @param file_path A character vector representing md5 file path.
+#'
+#' @return FALSE if md5 values match, TRUE otherwise.
+#' @export
+#'
+#' @examples
+compare_md5_change <- function(md5_data, file_path) {
+
+  output_file <- gsub(pattern = "^(.*)/$", replacement = "\\1", x = file_path)
+
+  if(file.exists(paste0(output_file, "_md5.csv"))) {
+    read_md5 <- data.table::fread(file = paste0(output_file, "_md5.csv"))
+
+    if(identical(sort(md5_data), sort(read_md5$x))) {
+      return(FALSE)
+    }
+  }
+  return(TRUE)
 }
 
 #' Generate md5 hash of the files in a given folder
@@ -345,7 +370,7 @@ dt_fill_NAs <- function(DT, column_names = NULL, val = 0) {
     data.table::setDT(DT)
   }
 
-  if(class(val) == "numeric") {
+  if(methods::is(val, "numeric")) {
     integer_cols <- colnames(DT)[sapply(DT, class) %in% "integer"]
     if(length(integer_cols)) {
       DT[ , (integer_cols) := lapply(.SD, as.numeric), .SDcols = integer_cols]
@@ -364,14 +389,14 @@ dt_fill_NAs <- function(DT, column_names = NULL, val = 0) {
     class_mismatch <- colnames(DT[,colnums, with = FALSE])[as.vector(sapply(DT[,colnums, with = FALSE], class)) != class(val)]
 
     if(length(class_mismatch)) {
-      if(class(val) == "numeric") {
+      if(methods::is(val, "numeric")) {
         DT[ , (class_mismatch) := lapply(.SD, as.character), .SDcols = class_mismatch]
         DT[ , (class_mismatch) := lapply(.SD, as.numeric), .SDcols = class_mismatch]
       }
-      if(class(val) == "character") {
+      if(methods::is(val, "character")) {
         DT[ , (class_mismatch) := lapply(.SD, as.character), .SDcols = class_mismatch]
       }
-      if(class(val) == "Date") {
+      if(methods::is(val, "Date")) {
         DT[ , (class_mismatch) := lapply(.SD, as.Date), .SDcols = class_mismatch]
       }
     }
