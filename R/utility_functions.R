@@ -133,12 +133,17 @@ update_output_file <- function(data, file_path, max_limit = 3) {
 #'
 #' @param folder_path A character string representing an absolute folder path.
 #' @param sheet A character string representing name of the excel sheet.
+#' @param mode A character string with either "strict" or "lenient". strict mode reprocesses all the files when there is a file change while lenient mode only reprocesses the modified files.
 #'
 #' @return A data.table representing the combined data of all the files within that given folder.
 #' @export
 #'
 #' @examples
-file_append <- function(folder_path, sheet = NULL) {
+file_append <- function(folder_path, sheet = NULL, mode = "strict") {
+
+  if(FALSE %in% mode %in% c("strict", "lenient") | !methods::is(mode, "character") | length(mode) != 1) {
+    stop("mode argument needs to be either strict or lenient")
+  }
 
   output_file <- gsub(pattern = "^(.*)/$", replacement = "\\1", x = folder_path)
 
@@ -151,9 +156,13 @@ file_append <- function(folder_path, sheet = NULL) {
   if(file.exists(paste0(output_file, "_md5.csv"))) {
     read_md5 <- data.table::fread(file = paste0(output_file, "_md5.csv"))
 
-    if(FALSE %in% (read_md5$x %in% files_md5)) {
-      reset_flag <- TRUE
-    } else {
+    if(mode == "strict") {
+      if(FALSE %in% (read_md5$x %in% files_md5)) {
+        reset_flag <- TRUE
+      } else {
+        reset_flag <- FALSE
+      }
+    } else if(mode == "lenient") {
       reset_flag <- FALSE
     }
 
@@ -238,7 +247,7 @@ file_append <- function(folder_path, sheet = NULL) {
           colnames(read_file)[col_rename] <- paste0(colnames(read_file)[col_rename-1], " name")
         }
 
-        if(!exists(data_final) & reset_flag) {
+        if(!exists("data_final") & reset_flag) {
           data_final <- read_file
         } else {
           cols_intersect <- intersect(colnames(data_final), colnames(read_file))
@@ -246,7 +255,7 @@ file_append <- function(folder_path, sheet = NULL) {
           if(length(colnames(data_final)) == length(cols_intersect) & length(colnames(read_file)) == length(cols_intersect)) {
             data_final <- data_final[,cols_intersect, with = FALSE]
             read_file <- read_file[,cols_intersect, with = FALSE]
-            data_final <- rbind(data_final, read_file)
+            data_final <- rbind(read_file, data_final)
           } else {
             max_rows <- nrow(data_final) + nrow(read_file)
             data_final <- merge(x = data_final, y = read_file, by = cols_intersect, all = TRUE)
