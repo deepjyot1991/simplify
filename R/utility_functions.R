@@ -177,8 +177,11 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
     reset_flag <- TRUE
   }
 
+  data_exists <- FALSE
+
   if(!reset_flag) {
     if(file.exists(paste0(output_file, "_merged.feather"))) {
+      data_exists <- TRUE
       # Read the csv file in case reading feather results in error such as duplicate column names are present
       if("try-error" %in% class(try(expr = {
         data_final <- feather::read_feather(path = paste0(output_file, "_merged.feather"))
@@ -247,8 +250,9 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
           colnames(read_file)[col_rename] <- paste0(colnames(read_file)[col_rename-1], " name")
         }
 
-        if(!exists("data_final") & reset_flag) {
+        if(!data_exists & reset_flag) {
           data_final <- read_file
+          data_exists <- TRUE
         } else {
           cols_intersect <- intersect(colnames(data_final), colnames(read_file))
 
