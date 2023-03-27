@@ -2,6 +2,7 @@
 
 export(compare_md5_change)
 export(custom_md5_hash)
+export(dcf_valuation)
 export(dt_fill_NAs)
 export(file_append)
 export(log_messages)
