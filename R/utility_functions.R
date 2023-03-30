@@ -448,3 +448,52 @@ dcf_valuation <- function(fcf, growth_rate, growth_years = 10, terminal_rate = 0
                                  ((`Current FCF`*((1+`Growth Rate`)^`Growth Years`)*(1+`Terminal Rate`)/(`Discount Rate`-`Terminal Rate`))/((1+`Discount Rate`)^`Growth Years`)))/`Share Count`]
   return(data_all$`DCF Valuation`)
 }
+
+#' Calculate Expected Return from investment
+#'
+#' @param fcf A numeric vector containing Free Cash Flow.
+#' @param growth_rate A numeric vector containing Growth Rate.
+#' @param growth_years A numeric vector containing Years of Growth. Default 10.
+#' @param terminal_rate A numeric vector containing Terminal Rate. Default 0.03.
+#' @param discount_rate A numeric vector containing Discount Rate. Default 0.15.
+#' @param shares A numeric vector containing number of Outstanding Shares.
+#' @param price A numeric vector containing current share price.
+#' @param dcf A numeric vector containing DCF Valuation.
+#'
+#' @return A numeric vector with Expected Return.
+#' @export
+#'
+#' @examples
+#' expected_return(fcf = 100000000, growth_rate = 0.10, shares = 100000, price = 100, dcf = 10)
+expected_return <- function(fcf, growth_rate, growth_years = 10, terminal_rate = 0.03, discount_rate = 0.15, shares, price, dcf) {
+
+  data_all <- data.table::data.table(`Current FCF` = fcf, `Growth Rate` = growth_rate, `Growth Years` = growth_years,
+                                     `Terminal Rate` = terminal_rate, `Discount Rate` = discount_rate, `Share Count` = shares,
+                                     `Current Price` = price, `DCF Value` = dcf)
+
+  for (i in 1:nrow(data_all)) {
+
+    dr <- data_all$`Discount Rate`[i]
+    stock_price <- round(data_all$`Current Price`[i], digits = 2)
+    dcf_value <- round(data_all$`DCF Value`[i], digits = 2)
+
+    if(dr > 0 & stock_price > 0 & data_all$`Current FCF`[i] > 0) {
+      prev_dr <- round(dr/2, digits = 3)
+
+      while (dcf != price & dr != prev_dr) {
+
+        prev_dr <- round(dr, digits = 3)
+        dr <- round(dr*(dcf/stock_price), digits = 3)
+
+        dcf <- simplify::dcf_valuation(fcf = data_all$`Current FCF`[i], growth_rate = data_all$`Growth Rate`[i],
+                                       growth_years = data_all$`Growth Years`[i], terminal_rate = data_all$`Terminal Rate`[i],
+                                       discount_rate = dr, shares = data_all$`Share Count`[i])
+        dcf <- round(dcf, digits = 2)
+      }
+      data_all[i, `Expected Return` := dr]
+    } else {
+      data_all[i, `Expected Return` := NA]
+    }
+  }
+  return(data_all$`Expected Return`)
+}
