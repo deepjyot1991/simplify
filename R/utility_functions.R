@@ -476,19 +476,47 @@ expected_return <- function(fcf, growth_rate, growth_years = 10, terminal_rate =
     dr <- data_all$`Discount Rate`[i]
     stock_price <- round(data_all$`Current Price`[i], digits = 2)
     dcf_value <- round(data_all$`DCF Value`[i], digits = 2)
+    last_positive <- dcf_value
+    last_negative <- dcf_value
 
     if(dr > 0 & stock_price > 0 & data_all$`Current FCF`[i] > 0) {
       prev_dr <- round(dr/2, digits = 3)
 
-      while (dcf != price & dr != prev_dr) {
+      while (dcf_value != stock_price & dr != prev_dr) {
 
-        prev_dr <- round(dr, digits = 3)
-        dr <- round(dr*(dcf/stock_price), digits = 3)
 
-        dcf <- simplify::dcf_valuation(fcf = data_all$`Current FCF`[i], growth_rate = data_all$`Growth Rate`[i],
-                                       growth_years = data_all$`Growth Years`[i], terminal_rate = data_all$`Terminal Rate`[i],
-                                       discount_rate = dr, shares = data_all$`Share Count`[i])
-        dcf <- round(dcf, digits = 2)
+
+        dcf_value <- simplify::dcf_valuation(fcf = data_all$`Current FCF`[i], growth_rate = data_all$`Growth Rate`[i],
+                                             growth_years = data_all$`Growth Years`[i], terminal_rate = data_all$`Terminal Rate`[i],
+                                             discount_rate = dr, shares = data_all$`Share Count`[i])
+
+        dcf_value <- round(dcf_value, digits = 2)
+
+        if(dcf_value < 0) {
+          dr <- (dr+prev_dr)/2
+        } else {
+          prev_dr <- round(dr, digits = 3)
+          dr <- round(dr*(dcf_value/stock_price), digits = 3)
+        }
+
+        if(dcf_value > stock_price) {
+          current_positive <- dcf_value - stock_price
+          if(current_positive >= last_positive) {
+            dr <- (dr+prev_dr)/2
+            dcf_value <- stock_price
+          }
+          last_positive <- current_positive
+        }
+
+        if(dcf_value < stock_price) {
+          current_negative <- stock_price - dcf_value
+          if(current_negative >= last_negative) {
+            dr <- (dr+prev_dr)/2
+            dcf_value <- stock_price
+          }
+          last_negative <- current_negative
+        }
+
       }
       data_all[i, `Expected Return` := dr]
     } else {
