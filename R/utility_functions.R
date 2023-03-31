@@ -476,52 +476,105 @@ expected_return <- function(fcf, growth_rate, growth_years = 10, terminal_rate =
     dr <- data_all$`Discount Rate`[i]
     stock_price <- round(data_all$`Current Price`[i], digits = 2)
     dcf_value <- round(data_all$`DCF Value`[i], digits = 2)
-    last_positive <- dcf_value
-    last_negative <- dcf_value
 
-    if(dr > 0 & stock_price > 0 & data_all$`Current FCF`[i] > 0) {
+    if(dcf_value > 0 & stock_price > 0 & data_all$`Current FCF`[i] > 0) {
       prev_dr <- round(dr/2, digits = 3)
-
-      while (dcf_value != stock_price & dr != prev_dr) {
-
-
+      first_time <- TRUE
+      while ((dcf_value != stock_price & dr != prev_dr) | first_time) {
 
         dcf_value <- simplify::dcf_valuation(fcf = data_all$`Current FCF`[i], growth_rate = data_all$`Growth Rate`[i],
                                              growth_years = data_all$`Growth Years`[i], terminal_rate = data_all$`Terminal Rate`[i],
                                              discount_rate = dr, shares = data_all$`Share Count`[i])
 
         dcf_value <- round(dcf_value, digits = 2)
+        prev_dr <- dr
 
-        if(dcf_value < 0) {
-          dr <- (dr+prev_dr)/2
+        if(first_time) {
+          data_history <- data.table::data.table(DCF = c(dcf_value, stock_price), discount_rate = c(dr, 0))
+          first_time <- FALSE
         } else {
-          prev_dr <- round(dr, digits = 3)
-          dr <- round(dr*(dcf_value/stock_price), digits = 3)
+          data_history <- rbind(data_history, data.table::data.table(DCF = dcf_value, discount_rate = dr))
         }
-
-        if(dcf_value > stock_price) {
-          current_positive <- dcf_value - stock_price
-          if(current_positive >= last_positive) {
-            dr <- (dr+prev_dr)/2
-            dcf_value <- stock_price
-          }
-          last_positive <- current_positive
-        }
-
-        if(dcf_value < stock_price) {
-          current_negative <- stock_price - dcf_value
-          if(current_negative >= last_negative) {
-            dr <- (dr+prev_dr)/2
-            dcf_value <- stock_price
-          }
-          last_negative <- current_negative
-        }
+        setorder(data_history, DCF)
+        if(stock_price > min(data_history$DCF) & stock_price < max(data_history$DCF)) {
+          price_index <- which(data_history$DCF == stock_price)[1]
+          dr <- round((data_history$discount_rate[price_index-1] + data_history$discount_rate[price_index+1])/2, digits = 3)
+        } else if(stock_price >= max(data_history$DCF)) {
+          dr <- round(dr*0.85, digits = 3)
+        } else if(stock_price <= min(data_history$DCF)) {
+          dr <- round(dr*1.15, digits = 3)
+        } else {}
 
       }
-      data_all[i, `Expected Return` := dr]
+      data_all[i, `Expected Return` := prev_dr]
     } else {
       data_all[i, `Expected Return` := NA]
     }
   }
   return(data_all$`Expected Return`)
+}
+
+#' Calculate Expected Growth Rate from investment
+#'
+#' @param fcf A numeric vector containing Free Cash Flow.
+#' @param growth_rate A numeric vector containing Growth Rate.
+#' @param growth_years A numeric vector containing Years of Growth. Default 10.
+#' @param terminal_rate A numeric vector containing Terminal Rate. Default 0.03.
+#' @param discount_rate A numeric vector containing Discount Rate. Default 0.15.
+#' @param shares A numeric vector containing number of Outstanding Shares.
+#' @param price A numeric vector containing current share price.
+#' @param dcf A numeric vector containing DCF Valuation.
+#'
+#' @return A numeric vector with Expected Growth Rate.
+#' @export
+#'
+#' @examples
+#' expected_growth_rate(fcf = 100000000, shares = 100000, price = 100, dcf = 10)
+expected_growth_rate <- function(fcf, growth_rate = 0.15, growth_years = 10, terminal_rate = 0.03, discount_rate = 0.15, shares, price, dcf) {
+
+  data_all <- data.table::data.table(`Current FCF` = fcf, `Growth Rate` = growth_rate, `Growth Years` = growth_years,
+                                     `Terminal Rate` = terminal_rate, `Discount Rate` = discount_rate, `Share Count` = shares,
+                                     `Current Price` = price, `DCF Value` = dcf)
+
+  for (i in 1:nrow(data_all)) {
+
+    gr <- data_all$`Growth Rate`[i]
+    stock_price <- round(data_all$`Current Price`[i], digits = 2)
+    dcf_value <- round(data_all$`DCF Value`[i], digits = 2)
+
+    if(dcf_value > 0 & stock_price > 0 & data_all$`Current FCF`[i] > 0) {
+      prev_gr <- round(gr/2, digits = 3)
+      first_time <- TRUE
+      while ((dcf_value != stock_price & gr != prev_gr) | first_time) {
+
+        dcf_value <- simplify::dcf_valuation(fcf = data_all$`Current FCF`[i], growth_rate = gr,
+                                             growth_years = data_all$`Growth Years`[i], terminal_rate = data_all$`Terminal Rate`[i],
+                                             discount_rate = data_all$`Discount Rate`[i], shares = data_all$`Share Count`[i])
+
+        dcf_value <- round(dcf_value, digits = 2)
+        prev_gr <- gr
+
+        if(first_time) {
+          data_history <- data.table::data.table(DCF = c(dcf_value, stock_price), growth_rate = c(gr, 0))
+          first_time <- FALSE
+        } else {
+          data_history <- rbind(data_history, data.table::data.table(DCF = dcf_value, growth_rate = gr))
+        }
+        setorder(data_history, DCF)
+        if(stock_price > min(data_history$DCF) & stock_price < max(data_history$DCF)) {
+          price_index <- which(data_history$DCF == stock_price)[1]
+          gr <- round((data_history$growth_rate[price_index-1] + data_history$growth_rate[price_index+1])/2, digits = 3)
+        } else if(stock_price >= max(data_history$DCF)) {
+          gr <- round(gr*1.15, digits = 3)
+        } else if(stock_price <= min(data_history$DCF)) {
+          gr <- round(gr*0.85, digits = 3)
+        } else {}
+
+      }
+      data_all[i, `Expected Growth Rate` := prev_gr]
+    } else {
+      data_all[i, `Expected Growth Rate` := NA]
+    }
+  }
+  return(data_all$`Expected Growth Rate`)
 }
