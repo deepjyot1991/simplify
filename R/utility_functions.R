@@ -495,7 +495,7 @@ expected_return <- function(fcf, growth_rate, growth_years = 10, terminal_rate =
         } else {
           data_history <- rbind(data_history, data.table::data.table(DCF = dcf_value, discount_rate = dr))
         }
-        setorder(data_history, DCF)
+        data.table::setorder(data_history, DCF)
         if(stock_price > min(data_history$DCF) & stock_price < max(data_history$DCF)) {
           price_index <- which(data_history$DCF == stock_price)[1]
           dr <- round((data_history$discount_rate[price_index-1] + data_history$discount_rate[price_index+1])/2, digits = 3)
@@ -560,7 +560,7 @@ expected_growth_rate <- function(fcf, growth_rate = 0.15, growth_years = 10, ter
         } else {
           data_history <- rbind(data_history, data.table::data.table(DCF = dcf_value, growth_rate = gr))
         }
-        setorder(data_history, DCF)
+        data.table::setorder(data_history, DCF)
         if(stock_price > min(data_history$DCF) & stock_price < max(data_history$DCF)) {
           price_index <- which(data_history$DCF == stock_price)[1]
           gr <- round((data_history$growth_rate[price_index-1] + data_history$growth_rate[price_index+1])/2, digits = 3)
