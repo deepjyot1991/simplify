@@ -578,3 +578,16 @@ expected_growth_rate <- function(fcf, growth_rate = 0.15, growth_years = 10, ter
   }
   return(data_all$`Expected Growth Rate`)
 }
+
+
+#' Read a feather file and return a data.table object
+#'
+#' @param file_path A character vector containing an absolute path to a feather file.
+#'
+#' @return A data.table.
+#' @export
+#'
+#' @examples
+feather_to_DT <- function(file_path) {
+  data.table::as.data.table(feather::read_feather(path = file_path))
+}
