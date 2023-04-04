@@ -591,3 +591,25 @@ expected_growth_rate <- function(fcf, growth_rate = 0.15, growth_years = 10, ter
 feather_to_DT <- function(file_path) {
   data.table::as.data.table(feather::read_feather(path = file_path))
 }
+
+#' Format a numeric vector into K, M, B, T
+#'
+#' @param num_col A numeric vector.
+#' @param digits A numeric value representing number of decimal digits.
+#'
+#' @return A numeric vector with KMBT format.
+#' @export
+#'
+#' @examples
+#' format_number(c(10, 42385, 8921478432, NA))
+format_number <- function(num_col, digits = 0) {
+  num_dt <- data.table::data.table(num_col = num_col)
+
+  num_dt[, new_col := as.character(num_col)]
+  num_dt[num_col < 1000, new_col := round(num_col, digits = digits)]
+  num_dt[num_col >= 1000 & num_col < 1000000, new_col := paste0(round(num_col/1000, digits = digits), " K")]
+  num_dt[num_col >= 1000000 & num_col < 1000000000, new_col := paste0(round(num_col/1000000, digits = digits), " M")]
+  num_dt[num_col >= 1000000000 & num_col < 1000000000000, new_col := paste0(round(num_col/1000000000, digits = digits), " B")]
+  num_dt[num_col >= 1000000000000, new_col := paste0(round(num_col/1000000000000, digits = digits), " T")]
+  return(num_dt$new_col)
+}

@@ -1,6 +1,6 @@
 Package: simplify
 Title: Miscellaneous functions for everyday use
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: 
     person("Deep", "Devdhara", , "deepjyot1991@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
