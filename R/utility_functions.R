@@ -613,3 +613,20 @@ format_number <- function(num_col, digits = 0) {
   num_dt[num_col >= 1000000000000, new_col := paste0(round(num_col/1000000000000, digits = digits), " T")]
   return(num_dt$new_col)
 }
+
+#' Capitalize the first letter of all words
+#'
+#' Make first letter of every word uppercase. It is advised to use a string with all lower case as input.
+#'
+#' @param x A character value (string) preferably lowercase string.
+#'
+#' @return A character value (string) with first letter of each word in capital.
+#' @export
+#'
+#' @examples
+#' simpleCap("watch the magic")
+simpleCap <- function(x) {
+  s <- strsplit(x, " ")[[1]]
+  paste(toupper(substring(s, 1,1)), substring(s, 2),
+        sep="", collapse=" ")
+}
