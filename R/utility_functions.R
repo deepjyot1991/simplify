@@ -630,3 +630,49 @@ simpleCap <- function(x) {
   paste(toupper(substring(s, 1,1)), substring(s, 2),
         sep="", collapse=" ")
 }
+
+#' Convert a vector of customer names into a vector of customer page links.
+#'
+#' Add html elements to a character vector to convert it into clickable links.
+#'
+#' @param to_menu A character value specifying the menu name to jump to.
+#' @param to_tab A character value specifying the tab name to jump to (optional).
+#' @param modify_vector A character vector of customer names to create links.
+#' @param from_tab A character value specifying the current page.
+#' @param display_vector A character vector of customer names for display.
+#'
+#' @return A character vector of customer page links.
+#' @export
+#'
+#' @examples
+#' add_openTab(to_menu = "customer", modify_vector = c("Customer A", "Customer B"),
+#' from_tab = "search")
+add_openTab <- function(to_menu, to_tab = "", modify_vector, display_vector = "", from_tab) {
+
+  if(length(display_vector) == 1) {
+    if(display_vector == "") {
+      display_vector <- modify_vector
+    }
+  }
+
+  with_double_quote <- grep(pattern = '"', x = modify_vector)
+
+  if(length(with_double_quote))
+  {
+    if(length(modify_vector[-with_double_quote]))
+    {
+      modify_vector[-with_double_quote] <- paste("<a onclick='openTab(\"", to_menu, "\", \"", to_tab, "\", \"", gsub(pattern = '"', replacement = '&quot;', x = gsub(pattern = "'", replacement = "&#39;", x = modify_vector[-with_double_quote])) ,"\", \"", from_tab, "\")'>", display_vector[-with_double_quote], "</a>", sep = "")
+    }
+
+    if(length(modify_vector[with_double_quote]))
+    {
+      modify_vector[with_double_quote] <- paste("<a onclick=\"openTab('", to_menu, "', '", to_tab, "', '", gsub(pattern = '"', replacement = '&quot;', x = gsub(pattern = "'", replacement = "&#39;", x = modify_vector[with_double_quote])) ,"', '", from_tab, "')\">", display_vector[with_double_quote], "</a>", sep = "")
+    }
+  }
+  else
+  {
+    modify_vector <- paste("<a onclick='openTab(\"", to_menu, "\", \"", to_tab, "\", \"", gsub(pattern = '"', replacement = '&quot;', x = gsub(pattern = "'", replacement = "&#39;", x = modify_vector)) ,"\", \"", from_tab, "\")'>", display_vector, "</a>", sep = "")
+  }
+
+  modify_vector
+}
