@@ -676,3 +676,16 @@ add_openTab <- function(to_menu, to_tab = "", modify_vector, display_vector = ""
 
   modify_vector
 }
+
+#' Unescape html characters
+#'
+#' @param str A character string containing HTML characers
+#'
+#' @return An unescaped character string
+#' @export
+#'
+#' @examples
+#' unescape_html("&euro; 2.99")
+unescape_html <- function(str) {
+  xml2::xml_text(xml2::read_html(paste0("<x>", str, "</x>")))
+}

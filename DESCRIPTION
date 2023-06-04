@@ -18,4 +18,5 @@ Imports:
     methods,
     readr,
     readxl,
-    tibble
+    tibble,
+    xml2
