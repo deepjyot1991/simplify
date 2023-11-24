@@ -78,7 +78,7 @@ log_messages <- function(message, file_path) {
 #' @export
 #'
 #' @examples
-update_output_file <- function(data, file_path, max_limit = 3) {
+update_output_file <- function(data, file_path, max_limit = 1) {
   file_path <- gsub(pattern = "(\\/)*$", replacement = "", x = file_path)
   dir.create(path = gsub(pattern = "([^/]*)$", replacement = "", x = file_path), recursive = TRUE, showWarnings = FALSE)
 
@@ -354,7 +354,7 @@ update_md5_file <- function(md5_data, folder_path) {
 
   output_file <- gsub(pattern = "^(.*)/$", replacement = "\\1", x = folder_path)
 
-  utils::write.csv(x = md5_data, file = paste0(output_file, "_md5.csv"), row.names = FALSE)
+  data.table::fwrite(data.table::data.table(x = md5_data), paste0(output_file, "_md5.csv"))
 
   TRUE
 }
@@ -588,8 +588,8 @@ expected_growth_rate <- function(fcf, growth_rate = 0.15, growth_years = 10, ter
 #' @export
 #'
 #' @examples
-feather_to_DT <- function(file_path) {
-  data.table::as.data.table(feather::read_feather(path = file_path))
+feather_to_DT <- function(path, columns = NULL) {
+  data.table::as.data.table(feather::read_feather(path = path, columns = columns))
 }
 
 #' Format a numeric vector into K, M, B, T
@@ -689,3 +689,8 @@ add_openTab <- function(to_menu, to_tab = "", modify_vector, display_vector = ""
 unescape_html <- function(str) {
   xml2::xml_text(xml2::read_html(paste0("<x>", str, "</x>")))
 }
+
+# analyze_project <- function(path) {
+#
+#   all_files <- list.files(path = path, pattern = "\\.r$", full.names = TRUE, recursive = TRUE, ignore.case = TRUE)
+# }
