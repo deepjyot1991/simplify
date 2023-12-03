@@ -4,10 +4,12 @@
 \alias{feather_to_DT}
 \title{Read a feather file and return a data.table object}
 \usage{
-feather_to_DT(file_path)
+feather_to_DT(path, columns = NULL)
 }
 \arguments{
-\item{file_path}{A character vector containing an absolute path to a feather file.}
+\item{path}{A character vector containing an absolute path to a feather file.}
+
+\item{columns}{Columns to read (names or indexes). Default: Read all columns.}
 }
 \value{
 A data.table.

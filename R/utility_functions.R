@@ -72,7 +72,7 @@ log_messages <- function(message, file_path) {
 #'
 #' @param data A data.frame, tibble or data.table.
 #' @param file_path A character string representing the path of the output file. Do not include file extension.
-#' @param max_limit A numeric value representing the number of most recent back up files to keep. Default is 3.
+#' @param max_limit A numeric value representing the number of most recent back up files to keep. Default is 1.
 #'
 #' @return A logical value TRUE if the operation is successful.
 #' @export
@@ -582,14 +582,15 @@ expected_growth_rate <- function(fcf, growth_rate = 0.15, growth_years = 10, ter
 
 #' Read a feather file and return a data.table object
 #'
-#' @param file_path A character vector containing an absolute path to a feather file.
+#' @param path  A character vector containing an absolute path to a feather file.
+#' @param columns Columns to read (names or indexes). Default: Read all columns.
 #'
 #' @return A data.table.
 #' @export
 #'
 #' @examples
 feather_to_DT <- function(path, columns = NULL) {
-  data.table::as.data.table(feather::read_feather(path = path, columns = columns))
+  data.table::setDT(feather::read_feather(path = path, columns = columns))
 }
 
 #' Format a numeric vector into K, M, B, T
