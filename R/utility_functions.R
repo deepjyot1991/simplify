@@ -73,12 +73,13 @@ log_messages <- function(message, file_path) {
 #' @param data A data.frame, tibble or data.table.
 #' @param file_path A character string representing the path of the output file. Do not include file extension.
 #' @param max_limit A numeric value representing the number of most recent back up files to keep. Default is 1.
+#' @param csv_backup A logical value to denote whether you want additional csv backup.
 #'
 #' @return A logical value TRUE if the operation is successful.
 #' @export
 #'
 #' @examples
-update_output_file <- function(data, file_path, max_limit = 1) {
+update_output_file <- function(data, file_path, max_limit = 0, csv_backup = FALSE) {
   file_path <- gsub(pattern = "(\\/)*$", replacement = "", x = file_path)
   dir.create(path = gsub(pattern = "([^/]*)$", replacement = "", x = file_path), recursive = TRUE, showWarnings = FALSE)
 
@@ -92,14 +93,16 @@ update_output_file <- function(data, file_path, max_limit = 1) {
     feather::write_feather(x = data, path = paste0(file_path, ".feather"))
   }
 
-  if(file.exists(paste0(file_path, ".csv"))) {
-    if(file.rename(from = paste0(file_path, ".csv"), to = paste0(file_path, format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S"), ".csv"))) {
-      data.table::fwrite(x = data, file = paste0(file_path, ".csv"), row.names = FALSE)
+  if(csv_backup) {
+    if(file.exists(paste0(file_path, ".csv"))) {
+      if(file.rename(from = paste0(file_path, ".csv"), to = paste0(file_path, format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S"), ".csv"))) {
+        data.table::fwrite(x = data, file = paste0(file_path, ".csv"), row.names = FALSE)
+      } else {
+        data.table::fwrite(x = data, file = paste0(file_path, format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S-locked"), ".csv"), row.names = FALSE)
+      }
     } else {
-      data.table::fwrite(x = data, file = paste0(file_path, format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S-locked"), ".csv"), row.names = FALSE)
+      data.table::fwrite(x = data, file = paste0(file_path, ".csv"), row.names = FALSE)
     }
-  } else {
-    data.table::fwrite(x = data, file = paste0(file_path, ".csv"), row.names = FALSE)
   }
 
 
@@ -107,6 +110,14 @@ update_output_file <- function(data, file_path, max_limit = 1) {
 
   file_name <- gsub(pattern = ".*/(.*)$", replacement = "\\1", x = file_path)
 
+
+  if(!csv_backup) {
+    csv_file_path <- sort(list.files(path = folder_path, pattern = paste0("^", file_name, "\\.csv"), full.names = TRUE))
+
+    if(length(csv_file_path) > 0) {
+      file.remove(csv_file_path)
+    }
+  }
 
   all_extra_csv_files <- sort(list.files(path = folder_path, pattern = paste0("^", file_name, "-.+\\.csv"), full.names = TRUE))
 
@@ -181,13 +192,14 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
 
   if(!reset_flag) {
     if(file.exists(paste0(output_file, "_merged.feather"))) {
-      data_exists <- TRUE
+
       # Read the csv file in case reading feather results in error such as duplicate column names are present
       if("try-error" %in% class(try(expr = {
         data_final <- feather::read_feather(path = paste0(output_file, "_merged.feather"))
         data.table::setDT(data_final)
+        data_exists <- TRUE
       }, silent = TRUE))) {
-        data_final <- data.table::fread(paste0(output_file, "_merged.csv"))
+        reset_flag <- TRUE
       }
     } else {
       reset_flag <- TRUE
@@ -250,7 +262,7 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
           colnames(read_file)[col_rename] <- paste0(colnames(read_file)[col_rename-1], " name")
         }
 
-        if(!data_exists & reset_flag) {
+        if(!data_exists) {
           data_final <- read_file
           data_exists <- TRUE
         } else {
@@ -272,16 +284,6 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
     }
 
     feather::write_feather(x = data_final, path = paste0(output_file, "_merged.feather"))
-
-    if(file.exists(paste0(output_file, "_merged.csv"))) {
-      if(file.remove(paste0(output_file, "_merged.csv"))) {
-        data.table::fwrite(x = data_final, file = paste0(output_file, "_merged.csv"), row.names = FALSE)
-      } else {
-        data.table::fwrite(x = data_final, file = paste0(output_file, "_merged", format(x = Sys.time(), format = "-%Y-%m-%d-%H%M%S-locked"), ".csv"), row.names = FALSE)
-      }
-    } else {
-      data.table::fwrite(x = data_final, file = paste0(output_file, "_merged.csv"), row.names = FALSE)
-    }
 
   }
 

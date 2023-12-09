@@ -4,7 +4,7 @@
 \alias{update_output_file}
 \title{Update/create a file with the given data at a given path}
 \usage{
-update_output_file(data, file_path, max_limit = 1)
+update_output_file(data, file_path, max_limit = 0, csv_backup = FALSE)
 }
 \arguments{
 \item{data}{A data.frame, tibble or data.table.}
@@ -12,6 +12,8 @@ update_output_file(data, file_path, max_limit = 1)
 \item{file_path}{A character string representing the path of the output file. Do not include file extension.}
 
 \item{max_limit}{A numeric value representing the number of most recent back up files to keep. Default is 1.}
+
+\item{csv_backup}{A logical value to denote whether you want additional csv backup.}
 }
 \value{
 A logical value TRUE if the operation is successful.
