@@ -10,7 +10,8 @@ dcf_valuation(
   growth_years = 10,
   terminal_rate = 0.03,
   discount_rate = 0.15,
-  shares = 1
+  shares = 1,
+  excess_cash = 0
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ dcf_valuation(
 \item{discount_rate}{A numeric vector containing Discount Rate. Default 0.15.}
 
 \item{shares}{A numeric vector containing number of Outstanding Shares. Default 1.}
+
+\item{excess_cash}{A numeric vector containing Excess Cash.}
 }
 \value{
 A numeric vector with DCF Value.

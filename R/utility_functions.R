@@ -430,24 +430,26 @@ dt_fill_NAs <- function(DT, column_names = NULL, val = 0) {
 #' @param terminal_rate A numeric vector containing Terminal Rate. Default 0.03.
 #' @param discount_rate A numeric vector containing Discount Rate. Default 0.15.
 #' @param shares A numeric vector containing number of Outstanding Shares. Default 1.
+#' @param excess_cash A numeric vector containing Excess Cash.
 #'
 #' @return A numeric vector with DCF Value.
 #' @export
 #'
 #' @examples
 #' dcf_valuation(fcf = 1000, growth_rate = 0.10)
-dcf_valuation <- function(fcf, growth_rate, growth_years = 10, terminal_rate = 0.03, discount_rate = 0.15, shares = 1) {
+dcf_valuation <- function(fcf, growth_rate, growth_years = 10, terminal_rate = 0.03, discount_rate = 0.15, shares = 1, excess_cash = 0) {
 
   data_all <- data.table::data.table(`Current FCF` = fcf, `Growth Rate` = growth_rate, `Growth Years` = growth_years,
-                                     `Terminal Rate` = terminal_rate, `Discount Rate` = discount_rate, `Share Count` = shares)
+                                     `Terminal Rate` = terminal_rate, `Discount Rate` = discount_rate,
+                                     `Share Count` = shares, `Excess Cash` = excess_cash)
 
   data_all[`Growth Rate` == `Discount Rate`,
-           `DCF Valuation` := ((`Current FCF`*`Growth Years`) +
-                                 ((`Current FCF`*((1+`Growth Rate`)^`Growth Years`)*(1+`Terminal Rate`)/(`Discount Rate`-`Terminal Rate`))/((1+`Discount Rate`)^`Growth Years`)))/`Share Count`]
+           `DCF Valuation` := (((`Current FCF`*`Growth Years`) +
+                                 ((`Current FCF`*((1+`Growth Rate`)^`Growth Years`)*(1+`Terminal Rate`)/(`Discount Rate`-`Terminal Rate`))/((1+`Discount Rate`)^`Growth Years`))) + `Excess Cash`)/`Share Count`]
 
   data_all[`Growth Rate` != `Discount Rate`,
-           `DCF Valuation` := ((`Current FCF`*(1+`Growth Rate`)*(1-((1+`Growth Rate`)^`Growth Years`)*(1+`Discount Rate`)^-`Growth Years`)/(`Discount Rate`-`Growth Rate`)) +
-                                 ((`Current FCF`*((1+`Growth Rate`)^`Growth Years`)*(1+`Terminal Rate`)/(`Discount Rate`-`Terminal Rate`))/((1+`Discount Rate`)^`Growth Years`)))/`Share Count`]
+           `DCF Valuation` := (((`Current FCF`*(1+`Growth Rate`)*(1-((1+`Growth Rate`)^`Growth Years`)*(1+`Discount Rate`)^-`Growth Years`)/(`Discount Rate`-`Growth Rate`)) +
+                                 ((`Current FCF`*((1+`Growth Rate`)^`Growth Years`)*(1+`Terminal Rate`)/(`Discount Rate`-`Terminal Rate`))/((1+`Discount Rate`)^`Growth Years`))) + `Excess Cash`)/`Share Count`]
   return(data_all$`DCF Valuation`)
 }
 
