@@ -12,7 +12,7 @@ expected_return(
   discount_rate = 0.15,
   shares,
   price,
-  dcf
+  excess_cash = 0
 )
 }
 \arguments{
@@ -30,7 +30,7 @@ expected_return(
 
 \item{price}{A numeric vector containing current share price.}
 
-\item{dcf}{A numeric vector containing DCF Valuation.}
+\item{excess_cash}{A numeric vector containing Excess Cash.}
 }
 \value{
 A numeric vector with Expected Return.
@@ -39,5 +39,5 @@ A numeric vector with Expected Return.
 Calculate Expected Return from investment
 }
 \examples{
-expected_return(fcf = 100000000, growth_rate = 0.10, shares = 100000, price = 100, dcf = 10)
+expected_return(fcf = 100000000, growth_rate = 0.10, shares = 100000, price = 100)
 }
