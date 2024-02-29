@@ -145,15 +145,20 @@ update_output_file <- function(data, file_path, max_limit = 0, csv_backup = FALS
 #' @param folder_path A character string representing an absolute folder path.
 #' @param sheet A character string representing name of the excel sheet.
 #' @param mode A character string with either "strict" or "lenient". strict mode reprocesses all the files when there is a file change while lenient mode only reprocesses the modified files.
+#' @param key_cols A charater vector representing columns identifying distinctive feature value between data files.
 #'
 #' @return A data.table representing the combined data of all the files within that given folder.
 #' @export
 #'
 #' @examples
-file_append <- function(folder_path, sheet = NULL, mode = "strict") {
+file_append <- function(folder_path, sheet = NULL, mode = "strict", key_cols = NULL) {
 
   if(FALSE %in% mode %in% c("strict", "lenient") | !methods::is(mode, "character") | length(mode) != 1) {
     stop("mode argument needs to be either strict or lenient")
+  }
+
+  if(!is.null(key_cols)) {
+    mode <- "lenient"
   }
 
   output_file <- gsub(pattern = "^(.*)/$", replacement = "\\1", x = folder_path)
@@ -195,8 +200,8 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
 
       # Read the csv file in case reading feather results in error such as duplicate column names are present
       if("try-error" %in% class(try(expr = {
-        data_final <- feather::read_feather(path = paste0(output_file, "_merged.feather"))
-        data.table::setDT(data_final)
+        existing_data <- feather::read_feather(path = paste0(output_file, "_merged.feather"))
+        data.table::setDT(existing_data)
         data_exists <- TRUE
       }, silent = TRUE))) {
         reset_flag <- TRUE
@@ -208,6 +213,7 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
 
 
   if(reset_flag | update_flag) {
+    first_loop <- TRUE
     for(i in 1:length(file_list)) {
       if((!files_md5[i] %in% read_md5$x) | reset_flag) {
         if(grepl(pattern = "\\.xlsx$", x = file_list[i])) {
@@ -262,15 +268,15 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
           colnames(read_file)[col_rename] <- paste0(colnames(read_file)[col_rename-1], " name")
         }
 
-        if(!data_exists) {
+        if(first_loop) {
           data_final <- read_file
-          data_exists <- TRUE
+          first_loop <- FALSE
         } else {
           cols_intersect <- intersect(colnames(data_final), colnames(read_file))
 
           if(length(colnames(data_final)) == length(cols_intersect) & length(colnames(read_file)) == length(cols_intersect)) {
-            data_final <- data_final[,cols_intersect, with = FALSE]
-            read_file <- read_file[,cols_intersect, with = FALSE]
+            data_final <- data_final[, cols_intersect, with = FALSE]
+            read_file <- read_file[, cols_intersect, with = FALSE]
             data_final <- rbind(read_file, data_final)
           } else {
             max_rows <- nrow(data_final) + nrow(read_file)
@@ -283,8 +289,30 @@ file_append <- function(folder_path, sheet = NULL, mode = "strict") {
       }
     }
 
-    feather::write_feather(x = data_final, path = paste0(output_file, "_merged.feather"))
+    if(!reset_flag & data_exists & !is.null(key_cols)) {
+      new_data <- unique(data_final[, key_cols, with = FALSE])[, dummy_col := T]
+      existing_data <- merge(x = existing_data, y = new_data, all.x = T)[is.na(`dummy_col`)][, `dummy_col` := NULL]
+    }
 
+    if(data_exists) {
+      cols_intersect <- intersect(colnames(data_final), colnames(existing_data))
+
+      if(length(colnames(data_final)) == length(cols_intersect) & length(colnames(existing_data)) == length(cols_intersect)) {
+        data_final <- data_final[, cols_intersect, with = FALSE]
+        existing_data <- existing_data[, cols_intersect, with = FALSE]
+        data_final <- rbind(existing_data, data_final)
+      } else {
+        max_rows <- nrow(data_final) + nrow(existing_data)
+        data_final <- merge(x = data_final, y = existing_data, by = cols_intersect, all = TRUE)
+        if(nrow(data_final) > max_rows) {
+          stop("Rows in merged data are more than sum of rows in individual files")
+        }
+      }
+    }
+
+    feather::write_feather(x = data_final, path = paste0(output_file, "_merged.feather"))
+  } else {
+    data_final <- existing_data
   }
 
   data_final

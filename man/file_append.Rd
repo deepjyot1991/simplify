@@ -4,7 +4,7 @@
 \alias{file_append}
 \title{Append multiple files in a given folder into one}
 \usage{
-file_append(folder_path, sheet = NULL, mode = "strict")
+file_append(folder_path, sheet = NULL, mode = "strict", key_cols = NULL)
 }
 \arguments{
 \item{folder_path}{A character string representing an absolute folder path.}
@@ -12,6 +12,8 @@ file_append(folder_path, sheet = NULL, mode = "strict")
 \item{sheet}{A character string representing name of the excel sheet.}
 
 \item{mode}{A character string with either "strict" or "lenient". strict mode reprocesses all the files when there is a file change while lenient mode only reprocesses the modified files.}
+
+\item{key_cols}{A charater vector representing columns identifying distinctive feature value between data files.}
 }
 \value{
 A data.table representing the combined data of all the files within that given folder.
