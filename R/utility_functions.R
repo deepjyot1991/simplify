@@ -389,6 +389,28 @@ update_md5_file <- function(md5_data, folder_path) {
   TRUE
 }
 
+#' Update the folder md5 hash once all the files in a given folder have processed
+#'
+#' A csv file with the same name as the folder name is created/updated with new md5 values. This file with md5 hash values and the given folder has same parent directory.
+#'
+#' @param md5_data A character vector representing md5 hash values of the folder.
+#' @param folder_path A character string representing an absolute folder path.
+#'
+#' @return A logical value TRUE if the operation is successful.
+#' @export
+#'
+#' @examples
+update_md5_folder <- function(md5_data, folder_path) {
+
+  dir.create(path = gsub(pattern = "([^/]*)$", replacement = "", x = folder_path), recursive = TRUE, showWarnings = FALSE)
+
+  output_file <- gsub(pattern = "^(.*)/$", replacement = "\\1", x = folder_path)
+
+  data.table::fwrite(data.table::data.table(x = md5_data), paste0(output_file, "_fldr_md5.csv"))
+
+  TRUE
+}
+
 #' Fill missing values in a data.frame or a data.table by reference
 #'
 #' Intelligently fill missing values in a data.frame or a data.table in memory.
