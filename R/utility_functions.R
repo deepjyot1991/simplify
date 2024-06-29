@@ -35,7 +35,7 @@ custom_md5_hash <- function(path_files) {
 #' @examples
 log_messages <- function(message, file_path) {
 
-  message_df <- tibble::tibble(Timestamp = as.character(Sys.time()), Message = message)
+  message_df <- tibble::tibble(Timestamp = format(Sys.time(), tz = "America/Detroit"), Message = message)
   # Lock the log file
   logs_lock <- filelock::lock(path = paste0(file_path, ".lock"), exclusive = TRUE, timeout = 5000)
 
